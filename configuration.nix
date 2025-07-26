@@ -219,6 +219,7 @@
 
       # Choose the open-source kernel module (Turing+ only)
       open = true;
+	  datacenter.enable = true;
 
       # Whether to install the `nvidia-settings` GUI tool
       nvidiaSettings.enable = false;
