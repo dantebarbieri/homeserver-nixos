@@ -220,7 +220,7 @@
   security = {
     doas = {
       enable = true;
-      extraRules = [ { groups = [ "wheel" ]; keepEnv = true; }]
+      extraRules = [ { groups = [ "wheel" ]; keepEnv = true; }];
     };
     sudo.enable = false;
   };
