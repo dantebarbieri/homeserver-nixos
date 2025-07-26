@@ -85,6 +85,13 @@
   # Enable LVM
   services.lvm.enable = true;
   boot.initrd.services.lvm.enable = true;
+  
+  # Enable RAID
+  boot.swraid.enable   = true;
+  boot.swraid.mdadmConf = builtins.concatStringsSep "\n" [
+    "ARRAY /dev/md0 metadata=1.2 spares=1 name=homeserver:0 UUID=a13e736d:e8805790:1e2d65a6:c4f6b3d2"
+	"PROGRAM /usr/local/bin/mdadm-ntfy"
+  ];
 
   # Enable the X11 windowing system.
   # services.xserver.enable = true;
