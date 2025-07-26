@@ -27,7 +27,7 @@
 
   fileSystems."/" = {
     # Mount the root LV (must exist before install or be created manually)
-    device = "/dev/mapper/homeserver-vg-root";
+    device = "/dev/mapper/homeserver--vg-root";
     fsType = "ext4";
   };
 
@@ -44,7 +44,7 @@
   };
 
   swapDevices = [
-    { device = "/dev/mapper/homeserver-vg-swap"; }
+    { device = "/dev/mapper/homeserver--vg-swap"; }
   ];
 
   #########################
