@@ -140,11 +140,14 @@
   # programs.firefox.enable = true;
   programs.git = {
     enable = true;
-    extraConfig = {
+    config = {
+	  init = { defaultBranch = "main"; };
       push = { autoSetupRemote = true; };
+	  user = {
+	    email = "dantevbarbieri@gmail.com";
+		name = "dantebarbieri";
+	  };
     };
-    userName  = "dantebarbieri";
-    userEmail = "dantevbarbieri@gmail.com";
   };
   programs.neovim = {
     enable = true;
