@@ -16,6 +16,7 @@
 
   # Allow Proprietary
   nixpkgs.config.allowUnfree = true;
+  nixpkgs.config.nvidia.acceptLicense = true;
 
   networking.hostName = "homeserver"; # Define your hostname.
 
