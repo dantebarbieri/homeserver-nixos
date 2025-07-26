@@ -21,7 +21,6 @@
   # Enable auto-assembly of RAID and scanning of LVM devices
   boot.initrd.mdadm.enable   = lib.mkDefault true;
   boot.initrd.mdadm.autoScan = lib.mkDefault true;
-  boot.initrd.lvm.enable     = lib.mkDefault true;
 
   boot.kernelModules = [ "kvm-amd" ];
   boot.extraModulePackages = [ ];
