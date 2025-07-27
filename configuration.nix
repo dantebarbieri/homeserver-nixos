@@ -41,69 +41,52 @@
       ];
 
       profiles = {
-        # --- Bond master (static IP here) ---
-        "lan-bond" = {
-          connection = {
-            id             = "lan-bond";
-            interface-name = "bond0";
-            type           = "bond";
-            autoconnect    = true;
-          };
-          bond = {
-            mode    = "active-backup";
-            primary = "wlp193s0";
-            miimon  = "100";
-          };
-          ipv4 = {
-            method    = "manual";
-            addresses = "192.168.1.100/24";
-            gateway   = "192.168.1.1";
-            dns       = "1.1.1.1;1.0.0.1;";  # semicolon-separated if multiple
-          };
+        # Wi-Fi (primary path + service IP here)
+        "wifi-wlp193s0" = {
+          connection.id             = "wifi-wlp193s0";
+          connection.type           = "wifi";
+          connection.interface-name = "wlp193s0";
+          connection.autoconnect    = true;
+          connection.autoconnect-priority = 500;
+
+          wifi.ssid = "Aggies R Us";
+          wifi-security.key-mgmt = "wpa-psk";
+
+          ipv4.method      = "manual";
+          ipv4.addresses   = "192.168.1.26/24;192.168.1.100/32;";  # put VIP here
+          ipv4.gateway     = "192.168.1.1";
+          ipv4.dns         = "1.1.1.1;1.0.0.1;";
+          ipv4.route-metric = 10;
           ipv6.method = "ignore";
         };
 
-        # --- Wi-Fi slave (SSID here, PSK comes from secret agent) ---
-        "bond0-port-wlp193s0" = {
-          connection = {
-            id             = "bond0-port-wlp193s0";
-            interface-name = "wlp193s0";
-            type           = "wifi";
-            controller     = "bond0";
-            port-type      = "bond";
-            autoconnect    = true;
-          };
-          wifi.ssid = "Aggies R Us";   # keep SSID in repo if you’re OK with that
-          wifi-security.key-mgmt = "wpa-psk";  # PSK injected via secrets.entries
-          ipv4.method = "ignore";
+        # PowerLine #1
+        "eth-enp66s0f0" = {
+          connection.id             = "eth-enp66s0f0";
+          connection.type           = "ethernet";
+          connection.interface-name = "enp66s0f0";
+          connection.autoconnect    = true;
+
+          ipv4.method      = "manual";
+          ipv4.addresses   = "192.168.1.24/24";
+          ipv4.gateway     = "192.168.1.1";
+          ipv4.dns         = "1.1.1.1;1.0.0.1;";
+          ipv4.route-metric = 100;
           ipv6.method = "ignore";
         };
 
-        # --- PowerLine slave #1 ---
-        "bond0-port-enp66s0f0" = {
-          connection = {
-            id             = "bond0-port-enp66s0f0";
-            interface-name = "enp66s0f0";
-            type           = "ethernet";
-            controller     = "bond0";
-            port-type      = "bond";
-            autoconnect    = true;
-          };
-          ipv4.method = "ignore";
-          ipv6.method = "ignore";
-        };
+        # PowerLine #2
+        "eth-enp66s0f1" = {
+          connection.id             = "eth-enp66s0f1";
+          connection.type           = "ethernet";
+          connection.interface-name = "enp66s0f1";
+          connection.autoconnect    = true;
 
-        # --- PowerLine slave #2 ---
-        "bond0-port-enp66s0f1" = {
-          connection = {
-            id             = "bond0-port-enp66s0f1";
-            interface-name = "enp66s0f1";
-            type           = "ethernet";
-            controller     = "bond0";
-            port-type      = "bond";
-            autoconnect    = true;
-          };
-          ipv4.method = "ignore";
+          ipv4.method      = "manual";
+          ipv4.addresses   = "192.168.1.25/24";
+          ipv4.gateway     = "192.168.1.1";
+          ipv4.dns         = "1.1.1.1;1.0.0.1;";
+          ipv4.route-metric = 200;
           ipv6.method = "ignore";
         };
       };
