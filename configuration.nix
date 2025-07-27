@@ -100,12 +100,12 @@
     config = {
       commit.gpgsign = true;
       gpg.format = "ssh";
-	    init = { defaultBranch = "main"; };
+      init = { defaultBranch = "main"; };
       push = { autoSetupRemote = true; };
       user = {
         email = "dantevbarbieri@gmail.com";
         name = "dantebarbieri";
-        signingkey = "~/.ssh/id_25519.pub"
+        signingkey = "~/.ssh/id_ed25519.pub";
       };
     };
   };
@@ -167,7 +167,14 @@
   # system.copySystemConfiguration = true;
 
   # Enable Docker.
-  virtualisation.docker.enable = true;
+  virtualisation.docker = {
+    enable = true;
+    daemon.settings = {
+      features = {
+        cdi = true;
+      };
+    };
+  };
 
   # NVIDIA
   hardware = {
@@ -179,7 +186,7 @@
 
       # Choose the open-source kernel module (Turing+ only)
       open = true;
-	  datacenter.enable = true;
+      datacenter.enable = true;
 
       # Whether to install the `nvidia-settings` GUI tool
       nvidiaSettings.enable = false;
