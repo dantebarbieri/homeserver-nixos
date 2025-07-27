@@ -26,9 +26,6 @@
   networking.networkmanager = {
     enable = true;
 
-    # Let NM read secrets from files
-    nmfileSecretAgent.enable = true;
-
     ensureProfiles = {
       # Optional: explicit package (defaults to nm-file-secret-agent anyway)
       # package = pkgs.nm-file-secret-agent;
