@@ -98,12 +98,15 @@
   programs.git = {
     enable = true;
     config = {
-	  init = { defaultBranch = "main"; };
+      commit.gpgsign = true;
+      gpg.format = "ssh";
+	    init = { defaultBranch = "main"; };
       push = { autoSetupRemote = true; };
-	  user = {
-	    email = "dantevbarbieri@gmail.com";
-		name = "dantebarbieri";
-	  };
+      user = {
+        email = "dantevbarbieri@gmail.com";
+        name = "dantebarbieri";
+        signingkey = "~/.ssh/id_25519.pub"
+      };
     };
   };
   programs.neovim = {
