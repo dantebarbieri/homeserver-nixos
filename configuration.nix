@@ -22,6 +22,7 @@
 
   # Configure network connections interactively with nmcli or nmtui.
   networking.networkmanager.enable = true;
+  networking.useDHCP = false;
 
   # Set your time zone.
   time.timeZone = "America/Chicago";
