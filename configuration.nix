@@ -23,74 +23,36 @@
   # Don’t run any built-in DHCP client
   networking.useDHCP = false;
 
+  # Drop a dispatcher script
+  systemd.services."NetworkManager-dispatcher".wantedBy = [ "multi-user.target" ];
+
   networking.networkmanager = {
     enable = true;
 
-    ensureProfiles = {
-      # Optional: explicit package (defaults to nm-file-secret-agent anyway)
-      # package = pkgs.nm-file-secret-agent;
+    dispatcherScripts = [
+      {
+        source = pkgs.writeShellScript "nm-failover.sh" ''
+          IF="$1"; ACTION="$2"
+          WIFI_CON="wifi-static-100"
+          ETH_CON="eth-fallback-100"
 
-      secrets.entries = [
-        {
-          file         = "/root/nm-wifi-psk";
-          key          = "psk";
-          matchId      = "bond0-port-wlp193s0";
-          matchSetting = "wifi-security";
-          matchType    = "wifi";
-        }
-      ];
+          if [ "$IF" = "wlp193s0" ]; then
+            case "$ACTION" in
+              up|dhcp-change)
+                nmcli con up   "$WIFI_CON" 2>/dev/null
+                nmcli con down "$ETH_CON"  2>/dev/null
+                ;;
+              down)
+                nmcli con up   "$ETH_CON"  2>/dev/null
+                ;;
+            esac
+          fi
+        '';
+        # default priority is fine; runs on every NM event
+      }
+    ];
 
-      profiles = {
-        # Wi-Fi (primary path + service IP here)
-        "wifi-wlp193s0" = {
-          connection.id             = "wifi-wlp193s0";
-          connection.type           = "wifi";
-          connection.interface-name = "wlp193s0";
-          connection.autoconnect    = true;
-          connection.autoconnect-priority = 500;
-
-          wifi.ssid = "Aggies R Us";
-          wifi-security.key-mgmt = "wpa-psk";
-
-          ipv4.method      = "manual";
-          ipv4.addresses   = "192.168.1.26/24;192.168.1.100/32;";  # put VIP here
-          ipv4.gateway     = "192.168.1.1";
-          ipv4.dns         = "1.1.1.1;1.0.0.1;";
-          ipv4.route-metric = 10;
-          ipv6.method = "ignore";
-        };
-
-        # PowerLine #1
-        "eth-enp66s0f0" = {
-          connection.id             = "eth-enp66s0f0";
-          connection.type           = "ethernet";
-          connection.interface-name = "enp66s0f0";
-          connection.autoconnect    = true;
-
-          ipv4.method      = "manual";
-          ipv4.addresses   = "192.168.1.24/24";
-          ipv4.gateway     = "192.168.1.1";
-          ipv4.dns         = "1.1.1.1;1.0.0.1;";
-          ipv4.route-metric = 100;
-          ipv6.method = "ignore";
-        };
-
-        # PowerLine #2
-        "eth-enp66s0f1" = {
-          connection.id             = "eth-enp66s0f1";
-          connection.type           = "ethernet";
-          connection.interface-name = "enp66s0f1";
-          connection.autoconnect    = true;
-
-          ipv4.method      = "manual";
-          ipv4.addresses   = "192.168.1.25/24";
-          ipv4.gateway     = "192.168.1.1";
-          ipv4.dns         = "1.1.1.1;1.0.0.1;";
-          ipv4.route-metric = 200;
-          ipv6.method = "ignore";
-        };
-      };
-    };
+    unmanaged = [ "docker0" "br-*" "veth*" ];
   };
 
   # Set your time zone.
