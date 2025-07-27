@@ -26,88 +26,89 @@
   networking.networkmanager = {
     enable = true;
 
-    # Declare the secret entry (your PSK lives in /root/nm-wifi-psk)
-    ensureProfiles.secrets.entries = [
-      {
-        file         = "/root/nm-wifi-psk";
-        key          = "psk";
-        matchId      = "bond0-port-wlp193s0";
-        matchSetting = "wifi-security";
-        matchType    = "wifi";
-      }
-    ];
+    # Let NM read secrets from files
+    nmfileSecretAgent.enable = true;
 
-    # Define the bond + slave profiles
-    ensureProfiles.profiles = {
+    ensureProfiles = {
+      # Optional: explicit package (defaults to nm-file-secret-agent anyway)
+      # package = pkgs.nm-file-secret-agent;
 
-      # The bond master (gets the static IP)
-      "lan-bond" = {
-        connection = {
-          id             = "lan-bond";
-          interface-name = "bond0";
-          type           = "bond";
-          autoconnect    = true;
-        };
-        bond = {
-          mode    = "active-backup";
-          primary = "wlp193s0";
-          miimon  = "100";
-        };
-        ipv4 = {
-          method    = "manual";
-          addresses = [ "192.168.1.100/24" ];
-          gateway   = "192.168.1.1";
-          dns       = [ "1.1.1.1" ];
-        };
-        ipv6 = { method = "ignore"; };
-      };
+      secrets.entries = [
+        {
+          file         = "/root/nm-wifi-psk";
+          key          = "psk";
+          matchId      = "bond0-port-wlp193s0";
+          matchSetting = "wifi-security";
+          matchType    = "wifi";
+        }
+      ];
 
-      # Wi-Fi slave—SSID from here, PSK pulled via secret agent
-      "bond0-port-wlp193s0" = {
-        connection = {
-          id             = "bond0-port-wlp193s0";
-          interface-name = "wlp193s0";
-          type           = "wifi";
-          controller     = "bond0";
-          port-type      = "bond";
-          autoconnect    = true;
+      profiles = {
+        # --- Bond master (static IP here) ---
+        "lan-bond" = {
+          connection = {
+            id             = "lan-bond";
+            interface-name = "bond0";
+            type           = "bond";
+            autoconnect    = true;
+          };
+          bond = {
+            mode    = "active-backup";
+            primary = "wlp193s0";
+            miimon  = "100";
+          };
+          ipv4 = {
+            method    = "manual";
+            addresses = "192.168.1.100/24";
+            gateway   = "192.168.1.1";
+            dns       = "1.1.1.1;1.0.0.1;";  # semicolon-separated if multiple
+          };
+          ipv6.method = "ignore";
         };
-        wifi = {
-          ssid = "Aggies R Us"; # replace with your real SSID
-        };
-        wifi-security = {
-          key-mgmt = "wpa-psk"; # PSK comes from /root/nm-wifi-psk
-        };
-        ipv4.method = "ignore";
-        ipv6.method = "ignore";
-      };
 
-      # PowerLine slave #1
-      "bond0-port-enp66s0f0" = {
-        connection = {
-          id             = "bond0-port-enp66s0f0";
-          interface-name = "enp66s0f0";
-          type           = "ethernet";
-          controller     = "bond0";
-          port-type      = "bond";
-          autoconnect    = true;
+        # --- Wi-Fi slave (SSID here, PSK comes from secret agent) ---
+        "bond0-port-wlp193s0" = {
+          connection = {
+            id             = "bond0-port-wlp193s0";
+            interface-name = "wlp193s0";
+            type           = "wifi";
+            controller     = "bond0";
+            port-type      = "bond";
+            autoconnect    = true;
+          };
+          wifi.ssid = "Aggies R Us";   # keep SSID in repo if you’re OK with that
+          wifi-security.key-mgmt = "wpa-psk";  # PSK injected via secrets.entries
+          ipv4.method = "ignore";
+          ipv6.method = "ignore";
         };
-        ipv4.method = "ignore";
-        ipv6.method = "ignore";
-      };
 
-      # PowerLine slave #2
-      "bond0-port-enp66s0f1" = {
-        connection = {
-          id             = "bond0-port-enp66s0f1";
-          interface-name = "enp66s0f1";
-          type           = "ethernet";
-          controller     = "bond0";
-          port-type      = "bond";
-          autoconnect    = true;
+        # --- PowerLine slave #1 ---
+        "bond0-port-enp66s0f0" = {
+          connection = {
+            id             = "bond0-port-enp66s0f0";
+            interface-name = "enp66s0f0";
+            type           = "ethernet";
+            controller     = "bond0";
+            port-type      = "bond";
+            autoconnect    = true;
+          };
+          ipv4.method = "ignore";
+          ipv6.method = "ignore";
         };
-        ipv4.method = "ignore";
-        ipv6.method = "ignore";
+
+        # --- PowerLine slave #2 ---
+        "bond0-port-enp66s0f1" = {
+          connection = {
+            id             = "bond0-port-enp66s0f1";
+            interface-name = "enp66s0f1";
+            type           = "ethernet";
+            controller     = "bond0";
+            port-type      = "bond";
+            autoconnect    = true;
+          };
+          ipv4.method = "ignore";
+          ipv6.method = "ignore";
+        };
       };
     };
   };
