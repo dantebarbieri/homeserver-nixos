@@ -88,6 +88,7 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFYsa3JuUbgxuC6O+rfxSIC4scGcxhlgig+wXVoEMaCe dantevbarbieri@gmail.com" # Dell Latitude E5550
       ];
       packages = with pkgs; [
+        fastfetch
         tree
       ];
     };
@@ -137,6 +138,7 @@
     enable = true;
     enableSSHSupport = true;
   };
+  programs.ssh.startAgent = true;
 
   # List services that you want to enable:
 
