@@ -23,9 +23,6 @@
   # Don’t run any built-in DHCP client
   networking.useDHCP = false;
 
-  # Drop a dispatcher script
-  systemd.services."NetworkManager-dispatcher".wantedBy = [ "multi-user.target" ];
-
   networking.networkmanager = {
     enable = true;
 
