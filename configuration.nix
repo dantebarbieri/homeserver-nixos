@@ -31,19 +31,26 @@
         source = pkgs.writeShellScript "nm-failover.sh" ''
           IF="$1"; ACTION="$2"
           WIFI_CON="wifi-static-100"
-          ETH_CON="eth-fallback-100"
+          BOND_CON="eth-fallback-100"
+          BOND_DEV="bond0"
+          MGMT_IP="192.168.1.24/24"
+          FLOAT_IP="192.168.1.100/24"
 
-          if [ "$IF" = "wlp193s0" ]; then
-            case "$ACTION" in
-              up|dhcp-change)
-                nmcli con up   "$WIFI_CON" 2>/dev/null
-                nmcli con down "$ETH_CON"  2>/dev/null
-                ;;
-              down)
-                nmcli con up   "$ETH_CON"  2>/dev/null
-                ;;
-            esac
-          fi
+          log() { logger -t nm-failover "$*"; }
+
+          case "$IF:$ACTION" in
+            wlp193s0:up|wlp193s0:dhcp-change|wlp193s0:connectivity-change)
+              nmcli con mod "$BOND_CON" ipv4.addresses "$MGMT_IP" ipv4.never-default yes
+              nmcli con up "$BOND_CON" 2>/dev/null
+              log "WiFi up -> bond keeps $MGMT_IP, drops $FLOAT_IP"
+              ;;
+            wlp193s0:down|wlp193s0:disconnect)
+              nmcli con mod "$BOND_CON" ipv4.addresses "$MGMT_IP,$FLOAT_IP" ipv4.never-default no
+              nmcli con up "$BOND_CON" 2>/dev/null
+              arping -U -c2 -I "$BOND_DEV" 192.168.1.100 2>/dev/null
+              log "WiFi down -> bond now has $MGMT_IP + $FLOAT_IP"
+              ;;
+          esac
         '';
         # default priority is fine; runs on every NM event
       }
