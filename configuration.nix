@@ -208,6 +208,10 @@
       features = {
         cdi = true;
       };
+      fixed-cidr-v6 = "fd00::/80";
+      ipv6 = true;
+      live-restore = true;
+      userland-proxy = true;
     };
   };
 
