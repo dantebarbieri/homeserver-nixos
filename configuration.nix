@@ -5,117 +5,85 @@
 { config, lib, pkgs, ... }:
 
 {
-  imports =
-    [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-    ];
+  imports = [ ./hardware-configuration.nix ];
 
-  # Use the systemd-boot EFI boot loader.
+  # Boot
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Allow Proprietary
+  # Unfree + NVIDIA EULA
   nixpkgs.config.allowUnfree = true;
   nixpkgs.config.nvidia.acceptLicense = true;
 
-  networking.hostName = "homeserver"; # Define your hostname.
+  # Hostname
+  networking.hostName = "homeserver";
 
-  # Don’t run any built-in DHCP client
+  # We will define addresses in systemd-networkd (no global DHCP)
   networking.useDHCP = false;
 
-  networking.networkmanager = {
-    enable = true;
+  # Disable NetworkManager and its dispatcher hacks
+  networking.networkmanager.enable = false;
 
-    dispatcherScripts = [
-      {
-        source = pkgs.writeShellScript "nm-failover.sh" ''
-          IF="$1"; ACTION="$2"
-          WIFI_CON="wifi-static-100"
-          BOND_CON="eth-fallback-100"
-          BOND_DEV="bond0"
-          MGMT_IP="192.168.1.24/24"
-          FLOAT_IP="192.168.1.100/24"
+  # Switch to systemd-networkd + resolved
+  networking.useNetworkd = true;
+  networking.useDHCP = false;
 
-          log() { logger -t nm-failover "$*"; }
+  services.resolved.enable = true;
 
-          case "$IF:$ACTION" in
-            wlp193s0:up|wlp193s0:dhcp-change|wlp193s0:connectivity-change)
-              nmcli con mod "$BOND_CON" ipv4.addresses "$MGMT_IP" ipv4.never-default yes
-              nmcli con up "$BOND_CON" 2>/dev/null
-              log "WiFi up -> bond keeps $MGMT_IP, drops $FLOAT_IP"
-              ;;
-            wlp193s0:down|wlp193s0:disconnect)
-              nmcli con mod "$BOND_CON" ipv4.addresses "$MGMT_IP,$FLOAT_IP" ipv4.never-default no
-              nmcli con up "$BOND_CON" 2>/dev/null
-              arping -U -c2 -I "$BOND_DEV" 192.168.1.100 2>/dev/null
-              log "WiFi down -> bond now has $MGMT_IP + $FLOAT_IP"
-              ;;
-          esac
-        '';
-        # default priority is fine; runs on every NM event
-      }
-    ];
-
-    unmanaged = [ "docker0" "br-*" "veth*" ];
+  # Bond device definition
+  networking.bonds.bond0 = {
+    interfaces = [ "enp66s0f0" "enp66s0f1" ];
+    driverOptions = {
+      miimon = 100;
+      mode = "active-backup";
+    };
   };
 
-  # Set your time zone.
+  # Configure bond0 with static IPv4 + gateway + DNS
+  networking.interfaces.bond0 = {
+    useDHCP = false;
+    ipv4.addresses = [
+      { address = "192.168.1.100"; prefixLength = 24; }
+    ];
+  };
+
+  # default gateway + DNS
+  networking.defaultGateway = "192.168.1.1";
+  networking.nameservers   = [ "192.168.1.1" "1.1.1.1" "8.8.8.8" ];
+
+
+  # Make boot wait for real network readiness
+  systemd.network.wait-online.enable = true;
+  # (defaults to waiting for at least one configured interface; fine here)
+
+  # Time / locale / console
   time.timeZone = "America/Chicago";
-
-  # Configure network proxy if necessary
-  # networking.proxy.default = "http://user:password@proxy:port/";
-  # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
-
-  # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
   console = {
     font = "Lat2-Terminus16";
     keyMap = "us";
-  #   useXkbConfig = true; # use xkb.options in tty.
   };
-  
-  # Enable LVM
+
+  # LVM + RAID
   services.lvm.enable = true;
   boot.initrd.services.lvm.enable = true;
-  
-  # Enable RAID
-  boot.swraid.enable   = true;
+
+  boot.swraid.enable = true;
   boot.swraid.mdadmConf = builtins.concatStringsSep "\n" [
     "ARRAY /dev/md0 metadata=1.2 spares=1 name=homeserver:0 UUID=a13e736d:e8805790:1e2d65a6:c4f6b3d2"
-	"PROGRAM /usr/local/bin/mdadm-ntfy"
+    "PROGRAM /usr/local/bin/mdadm-ntfy"
   ];
 
-  # Enable the X11 windowing system.
-  # services.xserver.enable = true;
-
-  # Enable Flakes (Experimental)
+  # Flakes
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
-  # Configure keymap in X11
-  # services.xserver.xkb.layout = "us";
-  # services.xserver.xkb.options = "eurosign:e,caps:escape";
-
-  # Enable CUPS to print documents.
-  # services.printing.enable = true;
-
-  # Enable sound.
-  # services.pulseaudio.enable = true;
-  # OR
-  # services.pipewire = {
-  #   enable = true;
-  #   pulse.enable = true;
-  # };
-
-  # Enable touchpad support (enabled default in most desktopManager).
-  # services.libinput.enable = true;
-
-  # Define a user account. Don't forget to set a password with ‘passwd’.
+  # User
   users = {
     defaultUserShell = pkgs.zsh;
     users.danteb = {
       initialPassword = "changeme123!";
       isNormalUser = true;
-      extraGroups = [ "docker" "networkmanager" "wheel" ]; # Enable ‘sudo’ for the user.
+      extraGroups = [ "docker" "wheel" ];
       openssh.authorizedKeys.keys = [
         "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBH5PB799wDZ5lqHUn0HDnEudAaUk9ihMYk2/vE7O8ZZ+ykEEycFa1BFxVP4EnIe9J9jyD9GVYs2vgngMNFEmeAE=" # Dante's iPhone (Termius)
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGSElIxTg8VbjbB3O2WVMvZJYfP4GBzg5uzJSaKKu12f dantevbarbieri@gmail.com" # Dante's MacBook Pro
@@ -130,21 +98,21 @@
     };
   };
 
-  # programs.firefox.enable = true;
   programs.git = {
     enable = true;
     config = {
       commit.gpgsign = true;
       gpg.format = "ssh";
-      init = { defaultBranch = "main"; };
-      push = { autoSetupRemote = true; };
+      init.defaultBranch = "main";
+      push.autoSetupRemote = true;
       user = {
         email = "dantevbarbieri@gmail.com";
-        name = "dantebarbieri";
+        name  = "dantebarbieri";
         signingkey = "~/.ssh/id_ed25519.pub";
       };
     };
   };
+
   programs.neovim = {
     enable = true;
     defaultEditor = true;
@@ -156,30 +124,18 @@
   # List packages installed in system profile.
   # You can use https://search.nixos.org/ to find more packages (and options).
   environment.systemPackages = with pkgs; [
-    neovim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+    neovim
     wget
     zoxide
-
     # Storage tooling
-    mdadm
-    lvm2
-    dosfstools    # FAT/VFAT helpers
-    xfsprogs      # XFS helpers
-    parted        # Partitioning
-
+    mdadm lvm2 dosfstools xfsprogs parted
     # Docker
     docker-compose
   ];
 
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
   programs.gnupg.agent.enable = true;
   programs.ssh.startAgent = true;
 
-  # List services that you want to enable:
-
-  # Enable the OpenSSH daemon.
   services.openssh = {
     enable = true;
     ports = [ 28 ];
@@ -190,24 +146,11 @@
     };
   };
 
-  # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
-  # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
-
-  # Copy the NixOS configuration file and link it from the resulting system
-  # (/run/current-system/configuration.nix). This is useful in case you
-  # accidentally delete configuration.nix.
-  # system.copySystemConfiguration = true;
-
-  # Enable Docker.
+  # Docker
   virtualisation.docker = {
     enable = true;
     daemon.settings = {
-      features = {
-        cdi = true;
-      };
+      features = { cdi = true; };
       fixed-cidr-v6 = "fd00::/80";
       ipv6 = true;
       live-restore = true;
@@ -218,30 +161,21 @@
   # NVIDIA
   hardware = {
     graphics.enable = true;
-
     nvidia = {
-      # Enable kernel modesetting for tear-free output
       modesetting.enable = true;
-
-      # Choose the open-source kernel module (Turing+ only)
       open = true;
       datacenter.enable = true;
-
-      # Whether to install the `nvidia-settings` GUI tool
       nvidiaSettings.enable = false;
-
-      # Pin a driver version if desired (stable, beta, production, or legacy)
       # package = config.boot.kernelPackages.nvidiaPackages.stable;
     };
-
     nvidia-container-toolkit.enable = true;
   };
 
-  # Use DoAs instead of SUDo
+  # doas instead of sudo
   security = {
     doas = {
       enable = true;
-      extraRules = [ { groups = [ "wheel" ]; keepEnv = true; }];
+      extraRules = [ { groups = [ "wheel" ]; keepEnv = true; } ];
     };
     sudo.enable = false;
   };
