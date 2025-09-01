@@ -26,7 +26,9 @@
 
   # Switch to systemd-networkd + resolved
   networking.useNetworkd = true;
-  services.resolved.enable = true;
+  
+  # Use `true` until adguardhome is ready, then switch to it for DNS
+  services.resolved.enable = false;
 
   # Bond device definition
   networking.bonds.bond0 = {
