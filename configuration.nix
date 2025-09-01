@@ -32,7 +32,7 @@
   networking.bonds.bond0 = {
     interfaces = [ "enp66s0f0" "enp66s0f1" ];
     driverOptions = {
-      miimon = 100;
+      miimon = "100";
       mode = "active-backup";
     };
   };
@@ -46,7 +46,10 @@
   };
 
   # default gateway + DNS
-  networking.defaultGateway = "192.168.1.1";
+  networking.defaultGateway = {
+    address = "192.168.1.1";
+    interface = "bond0";
+  };
   networking.nameservers   = [ "192.168.1.1" "1.1.1.1" "8.8.8.8" ];
 
 
