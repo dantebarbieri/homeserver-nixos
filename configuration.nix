@@ -26,8 +26,6 @@
 
   # Switch to systemd-networkd + resolved
   networking.useNetworkd = true;
-  networking.useDHCP = false;
-
   services.resolved.enable = true;
 
   # Bond device definition
