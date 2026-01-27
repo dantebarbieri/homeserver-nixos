@@ -165,10 +165,11 @@
     after = [ "docker.service" "network-online.target" ];
     requires = [ "docker.service" ];
     wants = [ "network-online.target" ];
+    path = [ pkgs.docker-compose ];
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/srv/docker/compose";
-      ExecStart = "${pkgs.docker-compose}/bin/docker-compose pull --quiet && ${pkgs.docker-compose}/bin/docker-compose up -d --remove-orphans";
+      ExecStart = "${pkgs.bash}/bin/bash -c 'docker-compose pull --quiet && docker-compose up -d --remove-orphans'";
     };
   };
 
