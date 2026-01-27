@@ -164,6 +164,7 @@
     description = "Pull and update Docker Compose containers";
     after = [ "docker.service" "network-online.target" ];
     requires = [ "docker.service" ];
+    wants = [ "network-online.target" ];
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/srv/docker/compose";
