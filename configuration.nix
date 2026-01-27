@@ -159,6 +159,27 @@
     };
   };
 
+  # Docker Compose auto-update (daily at 4 AM)
+  systemd.services.docker-compose-update = {
+    description = "Pull and update Docker Compose containers";
+    after = [ "docker.service" "network-online.target" ];
+    requires = [ "docker.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      WorkingDirectory = "/srv/docker/compose";
+      ExecStart = "${pkgs.docker-compose}/bin/docker-compose pull --quiet && ${pkgs.docker-compose}/bin/docker-compose up -d --remove-orphans";
+    };
+  };
+
+  systemd.timers.docker-compose-update = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 04:00:00";
+      Persistent = true;
+      RandomizedDelaySec = "5m";
+    };
+  };
+
   # NVIDIA
   hardware = {
     graphics.enable = true;
