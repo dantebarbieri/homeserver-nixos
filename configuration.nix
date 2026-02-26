@@ -212,6 +212,7 @@
   };
 
   # NVIDIA (RTX 2070 SUPER — production driver, headless with persistenced)
+  services.xserver.videoDrivers = [ "nvidia" ];  # driver registration only, does not enable X11
   hardware = {
     graphics.enable = true;
     nvidia = {
