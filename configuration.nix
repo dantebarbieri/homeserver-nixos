@@ -219,7 +219,7 @@
       modesetting.enable = true;
       open = true;
       nvidiaPersistenced = true;  # keeps GPU initialized without X/Wayland (headless)
-      nvidiaSettings.enable = false;
+      nvidiaSettings = false;
       package = config.boot.kernelPackages.nvidiaPackages.production;
     };
     nvidia-container-toolkit.enable = true;
