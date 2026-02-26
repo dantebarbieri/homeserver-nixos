@@ -12,6 +12,13 @@
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.systemd-boot.configurationLimit = 5;
 
+  # Pin to LTS kernel for NVIDIA datacenter driver compatibility.
+  # Tracks latest 6.12.x point release (security fixes flow in automatically).
+  # Check EOL status at: https://kernel.org/category/releases.html
+  # When upgrading: pick the newest LTS that NVIDIA datacenter supports, then
+  #   bump to e.g. pkgs.linuxPackages_7_x and run: doas nixos-rebuild boot && reboot
+  boot.kernelPackages = pkgs.linuxPackages_6_12;
+
   # Unfree + NVIDIA EULA
   nixpkgs.config.allowUnfree = true;
   nixpkgs.config.nvidia.acceptLicense = true;
@@ -161,16 +168,39 @@
   };
 
   # Docker Compose auto-update (daily at 4 AM)
+
+  # Auto-generate deploy key if it doesn't exist
+  system.activationScripts.docker-compose-deploy-key = lib.stringAfter [ "users" ] ''
+    KEY="/root/.ssh/docker-compose-deploy"
+    if [ ! -f "$KEY" ]; then
+      mkdir -p /root/.ssh
+      chmod 700 /root/.ssh
+      ${pkgs.openssh}/bin/ssh-keygen -t ed25519 -f "$KEY" -N "" -C "docker-compose-deploy@${config.networking.hostName}"
+      chmod 600 "$KEY"
+      chmod 644 "$KEY.pub"
+      echo "Deploy key generated. Add the following public key to GitHub as a read-only deploy key:"
+      cat "$KEY.pub"
+    fi
+  '';
+
   systemd.services.docker-compose-update = {
     description = "Pull and update Docker Compose containers";
     after = [ "docker.service" "network-online.target" ];
     requires = [ "docker.service" ];
     wants = [ "network-online.target" ];
-    path = [ pkgs.docker-compose ];
+    path = [ pkgs.docker pkgs.git pkgs.openssh pkgs.bash ];
+    environment = {
+      GIT_SSH_COMMAND = "ssh -i /root/.ssh/docker-compose-deploy -o StrictHostKeyChecking=accept-new";
+    };
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/srv/docker/compose";
-      ExecStart = "${pkgs.bash}/bin/bash -c 'docker-compose pull --quiet && docker-compose up -d --remove-orphans'";
+      ExecStart = "${pkgs.bash}/bin/bash -c '\
+        git pull --recurse-submodules && \
+        docker compose pull --quiet && \
+        docker compose build --quiet && \
+        docker compose up -d --remove-orphans\
+      '";
     };
   };
 
@@ -191,10 +221,13 @@
       open = true;
       datacenter.enable = true;
       nvidiaSettings.enable = false;
-      # package = config.boot.kernelPackages.nvidiaPackages.stable;
     };
     nvidia-container-toolkit.enable = true;
   };
+
+  # Prevent nixos-rebuild switch from failing due to in-use NVIDIA modules
+  systemd.services.nvidia-persistenced.restartIfChanged = false;
+  systemd.services.nvidia-fabricmanager.restartIfChanged = false;
 
   # doas instead of sudo
   security = {
