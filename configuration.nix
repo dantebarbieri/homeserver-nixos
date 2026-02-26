@@ -12,12 +12,10 @@
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.systemd-boot.configurationLimit = 5;
 
-  # Pin to LTS kernel for NVIDIA datacenter driver compatibility.
-  # Tracks latest 6.12.x point release (security fixes flow in automatically).
-  # Check EOL status at: https://kernel.org/category/releases.html
-  # When upgrading: pick the newest LTS that NVIDIA datacenter supports, then
-  #   bump to e.g. pkgs.linuxPackages_7_x and run: doas nixos-rebuild boot && reboot
-  boot.kernelPackages = pkgs.linuxPackages_6_12;
+  # Use default kernel (follows NixOS channel).
+  # If NVIDIA breaks on a kernel update, temporarily pin to the previous LTS:
+  #   boot.kernelPackages = pkgs.linuxPackages_6_12;
+  # Check NVIDIA compatibility at: https://www.nvidia.com/en-us/drivers/unix/
 
   # Unfree + NVIDIA EULA
   nixpkgs.config.allowUnfree = true;
@@ -213,24 +211,21 @@
     };
   };
 
-  # NVIDIA
+  # NVIDIA (RTX 2070 SUPER — production driver, headless with persistenced)
   hardware = {
     graphics.enable = true;
     nvidia = {
       modesetting.enable = true;
       open = true;
-      datacenter.enable = true;
+      persistenced = true;  # keeps GPU initialized without X/Wayland (headless)
       nvidiaSettings.enable = false;
+      package = config.boot.kernelPackages.nvidiaPackages.production;
     };
     nvidia-container-toolkit.enable = true;
   };
 
   # Prevent nixos-rebuild switch from failing due to in-use NVIDIA modules
   systemd.services.nvidia-persistenced.restartIfChanged = false;
-
-  # Fabric Manager is only needed for multi-GPU NVLink/NVSwitch topologies (DGX/HGX).
-  # Single GPU (RTX 2070 SUPER) does not need it.
-  systemd.services.nvidia-fabricmanager.enable = false;
 
   # doas instead of sudo
   security = {
