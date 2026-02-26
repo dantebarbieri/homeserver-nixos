@@ -161,16 +161,39 @@
   };
 
   # Docker Compose auto-update (daily at 4 AM)
+
+  # Auto-generate deploy key if it doesn't exist
+  system.activationScripts.docker-compose-deploy-key = lib.stringAfter [ "users" ] ''
+    KEY="/root/.ssh/docker-compose-deploy"
+    if [ ! -f "$KEY" ]; then
+      mkdir -p /root/.ssh
+      chmod 700 /root/.ssh
+      ${pkgs.openssh}/bin/ssh-keygen -t ed25519 -f "$KEY" -N "" -C "docker-compose-deploy@${config.networking.hostName}"
+      chmod 600 "$KEY"
+      chmod 644 "$KEY.pub"
+      echo "Deploy key generated. Add the following public key to GitHub as a read-only deploy key:"
+      cat "$KEY.pub"
+    fi
+  '';
+
   systemd.services.docker-compose-update = {
     description = "Pull and update Docker Compose containers";
     after = [ "docker.service" "network-online.target" ];
     requires = [ "docker.service" ];
     wants = [ "network-online.target" ];
-    path = [ pkgs.docker-compose ];
+    path = [ pkgs.docker pkgs.git pkgs.openssh pkgs.bash ];
+    environment = {
+      GIT_SSH_COMMAND = "ssh -i /root/.ssh/docker-compose-deploy -o StrictHostKeyChecking=accept-new";
+    };
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/srv/docker/compose";
-      ExecStart = "${pkgs.bash}/bin/bash -c 'docker-compose pull --quiet && docker-compose up -d --remove-orphans'";
+      ExecStart = "${pkgs.bash}/bin/bash -c '\
+        git pull --recurse-submodules && \
+        docker compose pull --quiet && \
+        docker compose build --quiet && \
+        docker compose up -d --remove-orphans\
+      '";
     };
   };
 
