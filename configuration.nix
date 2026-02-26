@@ -195,13 +195,13 @@
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = "/srv/docker/compose";
-      ExecStart = "${pkgs.bash}/bin/bash -c '\
-        git pull --recurse-submodules && \
-        docker compose pull --quiet && \
-        docker compose build --quiet && \
-        docker compose up -d --remove-orphans\
-      '";
     };
+    script = ''
+      git pull --recurse-submodules && \
+      docker compose pull --quiet && \
+      docker compose build --quiet && \
+      docker compose up -d --remove-orphans
+    '';
   };
 
   systemd.timers.docker-compose-update = {
