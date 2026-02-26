@@ -227,7 +227,10 @@
 
   # Prevent nixos-rebuild switch from failing due to in-use NVIDIA modules
   systemd.services.nvidia-persistenced.restartIfChanged = false;
-  systemd.services.nvidia-fabricmanager.restartIfChanged = false;
+
+  # Fabric Manager is only needed for multi-GPU NVLink/NVSwitch topologies (DGX/HGX).
+  # Single GPU (RTX 2070 SUPER) does not need it.
+  systemd.services.nvidia-fabricmanager.enable = false;
 
   # doas instead of sudo
   security = {
