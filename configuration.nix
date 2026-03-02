@@ -130,15 +130,24 @@
 
   # List packages installed in system profile.
   # You can use https://search.nixos.org/ to find more packages (and options).
-  environment.systemPackages = with pkgs; [
-    neovim
-    wget
-    zoxide
-    # Storage tooling
-    mdadm lvm2 dosfstools xfsprogs parted
-    # Docker
-    docker-compose
-  ];
+  environment = {
+    systemPackages = with pkgs; [
+      bat
+      neovim
+      wget
+      zoxide
+      # Storage tooling
+      mdadm lvm2 dosfstools xfsprogs parted
+      # Docker
+      docker-compose
+    ];
+    variables = {
+      LESSOPEN = "| ${pkgs.bat}/bin/bat --color=always --style=plain --paging=never %s";
+      LESS = "-R";
+      MANROFFOPT = "-c";
+      MANPAGER = "sh -c 'col -bx | bat -l man -p'";
+    };
+  };
 
   programs.gnupg.agent.enable = true;
   programs.ssh.startAgent = true;
