@@ -277,7 +277,7 @@ in
   services.smartd = {
     enable = true;
     autodetect = true;
-    defaults.autodetected = "-a -o on -S on -n standby,q -s (S/../.././02|L/../../6/03) -W 4,45,55 -m root -M exec ${smartdAlert} -M test";
+    defaults.autodetected = "-a -o on -S on -n standby,q -s (S/../.././02|L/../../6/03) -W 4,45,55 -m root -M exec ${smartdAlert}";
     notifications.wall.enable = false;
   };
 
