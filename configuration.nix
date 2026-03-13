@@ -4,6 +4,68 @@
 
 { config, lib, pkgs, ... }:
 
+let
+  # ─── ntfy push-notification infrastructure ───────────────────────────────
+  # Your self-hosted ntfy instance (Docker container "ntfy").
+  # Subscribe on your phone — see NTFY-PHONE-SETUP.md
+  ntfyUrl   = "https://ntfy.danteb.com";
+  ntfyTopic = "homeserver-alerts";
+
+  # General-purpose CLI helper (available in $PATH as `ntfy-notify`)
+  #   Usage: ntfy-notify "Title" "Message body" [priority] [tags]
+  ntfyNotify = pkgs.writeShellScriptBin "ntfy-notify" ''
+    TITLE="''${1:-Homeserver Alert}"
+    MESSAGE="''${2:-No details provided}"
+    PRIORITY="''${3:-default}"
+    TAGS="''${4:-}"
+    ${pkgs.curl}/bin/curl -s \
+      -H "Title: $TITLE" \
+      -H "Priority: $PRIORITY" \
+      -H "Tags: $TAGS" \
+      -d "$MESSAGE" \
+      "${ntfyUrl}/${ntfyTopic}"
+  '';
+
+  # smartd alert handler (called via -M exec; receives SMARTD_* env vars)
+  smartdAlert = pkgs.writeShellScript "smartd-ntfy" ''
+    ${pkgs.curl}/bin/curl -s \
+      -H "Title: SMART: $SMARTD_FAILTYPE on ${config.networking.hostName}" \
+      -H "Priority: high" \
+      -H "Tags: warning,computer" \
+      -d "Device: $SMARTD_DEVICE — Type: $SMARTD_DEVICETYPE — $SMARTD_MESSAGE" \
+      "${ntfyUrl}/${ntfyTopic}"
+  '';
+
+  # mdadm event handler (PROGRAM directive; args: event device [component])
+  mdadmAlert = pkgs.writeShellScript "mdadm-ntfy" ''
+    EVENT="$1"
+    MD_DEVICE="$2"
+    COMPONENT="''${3:-none}"
+
+    case "$EVENT" in
+      Fail*|Degrade*|SparesMissing)
+        PRIORITY="urgent"
+        TAGS="rotating_light,computer"
+        ;;
+      Rebuild*|RebuildFinished)
+        PRIORITY="high"
+        TAGS="construction,computer"
+        ;;
+      *)
+        PRIORITY="default"
+        TAGS="information_source,computer"
+        ;;
+    esac
+
+    ${pkgs.curl}/bin/curl -s \
+      -H "Title: RAID $EVENT on ${config.networking.hostName}" \
+      -H "Priority: $PRIORITY" \
+      -H "Tags: $TAGS" \
+      -d "Array: $MD_DEVICE | Component: $COMPONENT" \
+      "${ntfyUrl}/${ntfyTopic}"
+  '';
+
+in
 {
   imports = [ ./hardware-configuration.nix ];
 
@@ -78,7 +140,7 @@
   boot.swraid.enable = true;
   boot.swraid.mdadmConf = builtins.concatStringsSep "\n" [
     "ARRAY /dev/md0 metadata=1.2 spares=1 name=homeserver:0 UUID=a13e736d:e8805790:1e2d65a6:c4f6b3d2"
-    "PROGRAM /usr/local/bin/mdadm-ntfy"
+    "PROGRAM ${mdadmAlert}"
   ];
 
   # Flakes
@@ -99,7 +161,6 @@
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFYsa3JuUbgxuC6O+rfxSIC4scGcxhlgig+wXVoEMaCe dantevbarbieri@gmail.com" # Dell Latitude E5550
       ];
       packages = with pkgs; [
-        fastfetch
         tree
       ];
     };
@@ -126,12 +187,41 @@
     vimAlias = true;
     viAlias = true;
   };
-  programs.zsh.enable = true;
+  programs.zsh = {
+    enable = true;
+    enableCompletion = false;  # zimfw handles completion via its own module
+    interactiveShellInit = ''
+      # ── zimfw: auto-download plugin manager if missing ──
+      ZIM_HOME="$HOME/.zim"
+      if [[ ! -e "$ZIM_HOME/zimfw.zsh" ]]; then
+        ${pkgs.curl}/bin/curl -fsSL --create-dirs -o "$ZIM_HOME/zimfw.zsh" \
+          https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh
+      fi
+
+      # ── any-nix-shell: stay in ZSH inside nix-shell / nix develop ──
+      ${pkgs.any-nix-shell}/bin/any-nix-shell zsh --info-right | source /dev/stdin
+
+      # ── Convenience function: try packages without installing ──
+      # Usage: nsp hello cowsay   →   nix shell nixpkgs#hello nixpkgs#cowsay
+      nsp() {
+        local args=()
+        for pkg in "$@"; do args+=("nixpkgs#$pkg"); done
+        nix shell "''${args[@]}"
+      }
+
+      # ── fastfetch: system info on every interactive shell ──
+      fastfetch
+    '';
+    shellAliases = {
+      ns = "nix shell";
+      nr = "nix run";
+    };
+  };
 
   # List packages installed in system profile.
   # You can use https://search.nixos.org/ to find more packages (and options).
   environment = {
-    systemPackages = with pkgs; [
+    systemPackages = (with pkgs; [
       # NOTE: neovim is NOT listed here — programs.neovim.enable adds the wrapped
       # package (finalPackage) automatically. Listing pkgs.neovim again would
       # install the *unwrapped* copy alongside it.
@@ -152,13 +242,16 @@
       # kickstart.nvim has vim.g.have_nerd_font = true in init.lua.
 
       bat
+      curl
       wget
       zoxide
+      fastfetch
+      any-nix-shell
       # Storage tooling
-      mdadm lvm2 dosfstools xfsprogs parted
+      mdadm lvm2 dosfstools xfsprogs parted smartmontools
       # Docker
       docker-compose
-    ];
+    ]) ++ [ ntfyNotify ];
     variables = {
       LESSOPEN = "| ${pkgs.bat}/bin/bat --color=always --style=plain --paging=never %s";
       LESS = "-R";
@@ -178,6 +271,14 @@
       PasswordAuthentication = false;
       KbdInteractiveAuthentication = false;
     };
+  };
+
+  # SMART drive monitoring → ntfy alerts
+  services.smartd = {
+    enable = true;
+    autodetect = true;
+    defaults.autodetected = "-a -o on -S on -n standby,q -s (S/../.././02|L/../../6/03) -W 4,45,55 -m root -M exec ${smartdAlert} -M test";
+    notifications.wall.enable = false;
   };
 
   # Docker
@@ -235,6 +336,107 @@
       OnCalendar = "*-*-* 04:00:00";
       Persistent = true;
       RandomizedDelaySec = "5m";
+    };
+  };
+
+  # ── Drive health monitoring (RAID + LVM → ntfy) ───────────────────────────
+
+  # Periodic check — catches issues that event handlers might miss
+  systemd.services.drive-health-check = {
+    description = "Periodic RAID and LVM health check with ntfy alerts";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      Nice = 19;
+      IOSchedulingClass = "idle";
+    };
+    path = with pkgs; [ mdadm lvm2 curl coreutils gnugrep gawk ];
+    script = ''
+      # ── mdadm RAID health ──
+      if [ -f /proc/mdstat ]; then
+        MDSTAT=$(cat /proc/mdstat)
+
+        # Degraded array (underscore = missing/failed drive)
+        if echo "$MDSTAT" | grep -qE '\[.*_.*\]'; then
+          curl -s \
+            -H "Title: RAID Degraded on ${config.networking.hostName}" \
+            -H "Priority: urgent" \
+            -H "Tags: rotating_light,computer" \
+            -d "$(echo "$MDSTAT" | grep -A2 '^md')" \
+            "${ntfyUrl}/${ntfyTopic}"
+        fi
+
+        # Active rebuild / resync
+        if echo "$MDSTAT" | grep -qiE 'recovery|resync|reshape'; then
+          curl -s \
+            -H "Title: RAID Rebuild on ${config.networking.hostName}" \
+            -H "Priority: high" \
+            -H "Tags: construction,computer" \
+            -d "$(echo "$MDSTAT" | grep -A3 '^md')" \
+            "${ntfyUrl}/${ntfyTopic}"
+        fi
+      fi
+
+      # ── LVM volume health ──
+      LVM_BAD=$(lvs --noheadings -o lv_name,vg_name,lv_health_status 2>/dev/null \
+                | awk 'NF>=3 && $3 != ""')
+      if [ -n "$LVM_BAD" ]; then
+        curl -s \
+          -H "Title: LVM Health Issue on ${config.networking.hostName}" \
+          -H "Priority: urgent" \
+          -H "Tags: rotating_light,computer" \
+          -d "Unhealthy LVM volumes: $LVM_BAD" \
+          "${ntfyUrl}/${ntfyTopic}"
+      fi
+
+      # ── Missing LVM physical volumes ──
+      PV_MISSING=$(pvs --noheadings 2>&1 | grep -i 'missing\|unknown' || true)
+      if [ -n "$PV_MISSING" ]; then
+        curl -s \
+          -H "Title: LVM PV Missing on ${config.networking.hostName}" \
+          -H "Priority: urgent" \
+          -H "Tags: rotating_light,computer" \
+          -d "$PV_MISSING" \
+          "${ntfyUrl}/${ntfyTopic}"
+      fi
+    '';
+  };
+
+  systemd.timers.drive-health-check = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 00/6:00:00";  # every 6 hours
+      Persistent = true;
+      RandomizedDelaySec = "5m";
+    };
+  };
+
+  # Weekly RAID scrub — verifies data parity consistency
+  systemd.services.mdadm-scrub = {
+    description = "RAID array data scrub (parity consistency check)";
+    serviceConfig = {
+      Type = "oneshot";
+      Nice = 19;
+      IOSchedulingClass = "idle";
+    };
+    path = with pkgs; [ curl coreutils ];
+    script = ''
+      echo check > /sys/block/md0/md/sync_action
+      curl -s \
+        -H "Title: RAID Scrub Started on ${config.networking.hostName}" \
+        -H "Priority: low" \
+        -H "Tags: broom,computer" \
+        -d "Weekly parity check initiated for /dev/md0" \
+        "${ntfyUrl}/${ntfyTopic}"
+    '';
+  };
+
+  systemd.timers.mdadm-scrub = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Sun *-*-* 02:00:00";
+      Persistent = true;
     };
   };
 
