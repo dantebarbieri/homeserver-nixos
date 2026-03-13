@@ -285,6 +285,29 @@ in
     notifications.wall.enable = false;
   };
 
+  # vdirsyncer contact sync (every 15 min)
+  systemd.services.vdirsyncer-sync = {
+    description = "Sync iCloud contacts via vdirsyncer";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "danteb";
+    };
+    path = with pkgs; [ vdirsyncer pass gnupg ];
+    script = ''
+      vdirsyncer sync icloud_contacts
+    '';
+  };
+
+  systemd.timers.vdirsyncer-sync = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*:0/15";
+      Persistent = true;
+    };
+  };
+
   # Docker
   virtualisation.docker = {
     enable = true;
