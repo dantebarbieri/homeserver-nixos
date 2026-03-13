@@ -90,13 +90,16 @@ fastfetch
 Your manual agent setup (lines 140–150 of `.zshrc`) can conflict with the
 system-managed agent.
 
-**Action:** Remove this block from `~/.zshrc`:
+**Action:** Remove the **custom socket setup** but **keep the key-loading line**.
+
+NixOS already starts the agent and provides `$SSH_AUTH_SOCK`. Running a
+second agent creates two competing sockets — keys added to one aren't
+visible in the other. However, the NixOS agent does **not** auto-load
+keys, so the `ssh-add` line is still useful (it loads your default key
+on first login so git signing works without repeated passphrase prompts).
 
 ```zsh
-# REMOVE — NixOS manages the SSH agent:
-# ------------------
-# SSH Agent
-# ------------------
+# REMOVE — NixOS already provides the agent socket:
 SSH_AGENT_SOCK="${XDG_RUNTIME_DIR:-/tmp}/ssh-agent-${USER}.sock"
 
 if [[ ! -S "$SSH_AGENT_SOCK" ]]; then
@@ -104,11 +107,9 @@ if [[ ! -S "$SSH_AGENT_SOCK" ]]; then
 fi
 export SSH_AUTH_SOCK="$SSH_AGENT_SOCK"
 
+# KEEP — loads your default key into the NixOS-managed agent on first login:
 ssh-add -l &>/dev/null || ssh-add 2>/dev/null
 ```
-
-The system agent socket is at `$SSH_AUTH_SOCK` (set automatically by
-the NixOS SSH agent service).
 
 ---
 
