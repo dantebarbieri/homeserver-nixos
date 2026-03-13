@@ -251,6 +251,10 @@ in
       mdadm lvm2 dosfstools xfsprogs parted smartmontools
       # Docker
       docker-compose
+      # Mail (aerc + contact sync)
+      aerc khard vdirsyncer
+      w3m              # HTML-to-text — used by aerc's built-in html filter
+      pass             # password store — credential backend for aerc & vdirsyncer
     ]) ++ [ ntfyNotify ];
     variables = {
       LESSOPEN = "| ${pkgs.bat}/bin/bat --color=always --style=plain --paging=never %s";
