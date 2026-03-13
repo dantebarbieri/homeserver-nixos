@@ -457,11 +457,17 @@ in
   # Prevent nixos-rebuild switch from failing due to in-use NVIDIA modules
   systemd.services.nvidia-persistenced.restartIfChanged = false;
 
-  # doas instead of sudo
+  # sudo-rs — memory-safe Rust sudo with credential caching + asterisk feedback
   security = {
-    doas = {
+    sudo-rs = {
       enable = true;
-      extraRules = [ { groups = [ "wheel" ]; keepEnv = true; } ];
+      extraRules = [{
+        groups = [ "wheel" ];
+        commands = [{
+          command = "ALL";
+          options = [ "SETENV" ];  # allow `sudo -E` to preserve env (like doas keepEnv)
+        }];
+      }];
     };
     sudo.enable = false;
   };

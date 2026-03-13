@@ -16,7 +16,7 @@ Docker-based services (see [homeserver-docker](https://github.com/dantebarbieri/
 | Editor | Neovim ([kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim)) |
 | GPU | NVIDIA RTX 2070 SUPER (headless, production driver) |
 | Containers | Docker + Docker Compose (auto-updated daily at 04:00) |
-| Auth | SSH key-only on port 28; `doas` instead of `sudo` |
+| Auth | SSH key-only on port 28; `sudo-rs` (Rust) with asterisk feedback |
 
 ## Networking
 
@@ -57,8 +57,9 @@ read-only deploy key.
 ## Security
 
 - **SSH**: key-only authentication on port 28; root login disabled.
-- **Privilege escalation**: `doas` with `keepEnv` for the `wheel` group;
-  `sudo` is disabled.
+- **Privilege escalation**: `sudo-rs` (memory-safe Rust implementation) for
+  the `wheel` group with `SETENV`; classic `sudo` and `doas` are disabled.
+  Provides credential caching and asterisk password feedback by default.
 - **Git commits** are signed with SSH keys (`gpg.format = ssh`).
 
 ## Neovim / Kickstart.nvim
@@ -91,5 +92,5 @@ machine. `kickstart.nvim` already sets `vim.g.have_nerd_font = true`.
 ## Applying changes
 
 ```bash
-doas nixos-rebuild switch
+sudo nixos-rebuild switch
 ```
