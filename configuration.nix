@@ -209,8 +209,8 @@ in
         nix shell "''${args[@]}"
       }
 
-      # ── fastfetch: system info on every interactive shell ──
-      fastfetch
+      # ── fastfetch: system info on initial shell only (not nix shell subshells) ──
+      [[ $SHLVL -eq 1 ]] && fastfetch
     '';
     shellAliases = {
       ns = "nix shell";
