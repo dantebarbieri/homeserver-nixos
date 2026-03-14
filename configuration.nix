@@ -255,6 +255,8 @@ in
       aerc khard vdirsyncer
       w3m              # HTML-to-text — used by aerc's built-in html filter
       pass             # password store — credential backend for aerc & vdirsyncer
+      # Typing practice
+      gtypist toipe
     ]) ++ [ ntfyNotify ];
     variables = {
       LESSOPEN = "| ${pkgs.bat}/bin/bat --color=always --style=plain --paging=never %s";
