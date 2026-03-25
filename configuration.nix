@@ -96,29 +96,20 @@ in
   networking.useNetworkd = true;
   services.resolved.enable = true;
 
-  # Bond device definition
-  networking.bonds.bond0 = {
-    interfaces = [ "enp66s0f0" "enp66s0f1" ];
-    driverOptions = {
-      miimon = "100";
-      mode = "active-backup";
-    };
-  };
-
-  # Configure bond0 with static IPv4 + gateway + DNS
-  networking.interfaces.bond0 = {
+  # Single NIC - enp66s0f0 is dead/flaky, using endpoint enp66s0f1 only
+  networking.interfaces.enp66s0f1 = {
     useDHCP = false;
     ipv4.addresses = [
-      { address = "192.168.1.100"; prefixLength = 24; }
+      { address = "192.168.50.100"; prefixLength = 24; }
     ];
   };
 
   # default gateway + DNS
   networking.defaultGateway = {
-    address = "192.168.1.1";
-    interface = "bond0";
+    address = "192.168.50.1";
+    interface = "enp66s0f1";
   };
-  networking.nameservers   = [ "192.168.1.1" "1.1.1.1" "8.8.8.8" ];
+  networking.nameservers   = [ "192.168.50.1" "1.1.1.1" "8.8.8.8" ];
 
 
   # Make boot wait for real network readiness
